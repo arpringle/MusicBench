@@ -1,7 +1,7 @@
 ## MusicBench
 MusicBench is a free-and-open-source digital audio workstation (DAW).
 
-It is written in C++, and uses the GTK user interface library, as well as the GStreamer multimedia library.
+It is written in C, and uses the GTK user interface library, as well as the GStreamer multimedia library.
 
 The app has several design goals, the first being ease-of-use. While many DAWs are difficult to use due to the sheer number of features, a novice should be able to use MusicBench without checking documentation.
 

@@ -1,5 +1,5 @@
 /*
-interface.cpp
+interface.c
 
 This source file includes the basic code for constructing
 the main user interface of MusicBench. It contains 3 main
@@ -250,7 +250,7 @@ static GtkWidget *ConstructTitleBar()
   GtkWidget *titlebar = gtk_header_bar_new();
   
   //Show window controls:
-  gtk_header_bar_set_show_close_button(GTK_HEADER_BAR(titlebar),true);
+  gtk_header_bar_set_show_close_button(GTK_HEADER_BAR(titlebar),TRUE);
   
   //Set window title:
   gtk_header_bar_set_title (GTK_HEADER_BAR(titlebar), "MusicBench");
