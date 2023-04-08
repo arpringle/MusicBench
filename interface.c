@@ -93,11 +93,11 @@ static GtkWidget *ConstructWindow()
   //in a separate GtkPaned, which syncs its position with the MainLayout.
 
   //Create the paned layout to hold the zoom controls and the timeline ruler.
-  GtkWidget *TopPanes=gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+  GtkWidget *TopPanes=gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);  
 
   //These two lines of code connect to the callback function which syncs the 2 GtkPaned layouts.
-  g_signal_connect(MainLayout, "notify::position", G_CALLBACK(on_paned_position_changed), TopPanes);
-  g_signal_connect(TopPanes, "notify::position", G_CALLBACK(on_paned_position_changed), MainLayout);
+  g_signal_connect(MainLayout, "notify::position", G_CALLBACK(PaneResized), TopPanes);
+  g_signal_connect(TopPanes, "notify::position", G_CALLBACK(PaneResized), MainLayout);
 
   //Attach the main paned layout (which should scroll) to the scrolled window:
   gtk_container_add(GTK_CONTAINER(ScrolledWindow),MainLayout);
@@ -111,12 +111,14 @@ static GtkWidget *ConstructWindow()
   gtk_container_add(GTK_CONTAINER(Window),MainBox);
 
   //Here we create a box and a frame for the track pane (the left pane)'s contents:
+  GtkWidget *TrackPaneBoxFrame=gtk_frame_new(NULL);
   GtkWidget *TrackPaneBox=gtk_box_new (GTK_ORIENTATION_VERTICAL,0);
   //Set its size:
   gtk_widget_set_size_request(TrackPaneBox, 350, 80);
+  //Add box to frame
+  gtk_container_add(GTK_CONTAINER(TrackPaneBoxFrame),TrackPaneBox);
   //Add the frame (which contains the box) to the left pane:
-  gtk_paned_add1(GTK_PANED(MainLayout),TrackPaneBox);
-
+  gtk_paned_add1(GTK_PANED(MainLayout),TrackPaneBoxFrame);
   //Now, we will create 2 boxes inside the TrackPaneBox--
 
   //Create the box which will hold the track list:
@@ -196,6 +198,8 @@ static GtkWidget *ConstructWindow()
   gtk_widget_set_margin_top(AddTrackButton,2);
   gtk_widget_set_margin_bottom(AddTrackButton,2);
 
+  g_signal_connect(AddTrackButton, "clicked", G_CALLBACK(AddTrack), TrackListBox);
+
   //Pack the button into its box:
   gtk_box_pack_end (GTK_BOX(AddTrackButtonBox),AddTrackButton,TRUE,FALSE,5);
   
@@ -251,9 +255,6 @@ static GtkWidget *ConstructTitleBar()
   
   //Show window controls:
   gtk_header_bar_set_show_close_button(GTK_HEADER_BAR(titlebar),TRUE);
-  
-  //Set window title:
-  gtk_header_bar_set_title (GTK_HEADER_BAR(titlebar), "MusicBench");
 
   //Create the media control buttons
   GtkWidget *PauseButton=gtk_button_new_from_icon_name("media-playback-pause-symbolic",GTK_ICON_SIZE_LARGE_TOOLBAR);
@@ -292,7 +293,7 @@ static GtkWidget *ConstructTitleBar()
   //Create menu items
   GtkWidget *SaveMenuItem=gtk_menu_item_new_with_label ("Save");
   GtkWidget *SaveAsMenuItem=gtk_menu_item_new_with_label ("Save As...");
-  GtkWidget *ExportProjectMenuItem=gtk_menu_item_new_with_label ("Export project");
+  GtkWidget *ExportProjectMenuItem=gtk_menu_item_new_with_label ("Export project...");
   GtkWidget *PreferencesMenuItem=gtk_menu_item_new_with_label ("Preferences");
   GtkWidget *AboutMenuItem=gtk_menu_item_new_with_label ("About");
 
@@ -340,12 +341,12 @@ static GtkWidget *ConstructTitleBar()
 }
 
 //Callback function for clicking the "X" button
-static void WindowClosed(GtkWidget *widget, gpointer data)
+void WindowClosed(GtkWidget *widget, gpointer data)
 {
   gtk_main_quit();
 }
 
-void on_paned_position_changed(GObject* object, GParamSpec* pspec, gpointer user_data)
+void PaneResized(GObject* object, GParamSpec* pspec, gpointer user_data)
 {
   GtkPaned* paned = GTK_PANED(object);
   GtkPaned* other_paned = GTK_PANED(user_data);
@@ -353,6 +354,55 @@ void on_paned_position_changed(GObject* object, GParamSpec* pspec, gpointer user
   // Get the current position of the paned widget
   int position = gtk_paned_get_position(paned);
 
-  // Set the position of the other paned widget to match
-  gtk_paned_set_position(other_paned, position);
+  // Set the position of the other paned widget to match if it is in the acceptable limits
+  if (position > 350) gtk_paned_set_position(other_paned, position);
+  else gtk_paned_set_position(paned, gtk_paned_get_position(other_paned));
+}
+
+void AddTrack(GtkWidget *button, gpointer TrackListBoxRef)
+{
+  //The track controls box contains several other boxes, which, all together,
+  //make up the controls for the track
+  GtkWidget *TrackControlsBox = gtk_box_new(GTK_ORIENTATION_VERTICAL,4);
+  
+  GtkWidget *TrackNameBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL,0);
+
+  GtkEntryBuffer *TrackName = gtk_entry_buffer_new("TrackName",9);
+
+  GtkWidget *TrackNameEntry = gtk_entry_new_with_buffer(TrackName);
+
+  GtkWidget *MuteButton = gtk_toggle_button_new();
+  GtkWidget *MuteButtonImage=gtk_image_new_from_icon_name("audio-volume-muted-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
+  gtk_container_add(GTK_CONTAINER(MuteButton), MuteButtonImage);
+  gtk_widget_set_tooltip_text(MuteButton, "Mute track");
+
+  GtkWidget *SoloButton = gtk_toggle_button_new_with_label("S");
+  gtk_widget_set_tooltip_text(SoloButton, "Solo track");
+  
+
+  gtk_box_pack_start(GTK_BOX(TrackNameBox),TrackNameEntry, TRUE, TRUE, 6);
+
+  gtk_style_context_add_class(gtk_widget_get_style_context(TrackNameEntry), "track-name-entry");
+
+  GtkCssProvider *TrackNameEntry_CSS_Provider = gtk_css_provider_new();
+  gtk_css_provider_load_from_data(TrackNameEntry_CSS_Provider,
+    ".track-name-entry {"
+    "  font-size: 36px;"
+    "  background-color: rgba(0,0,0,0);"
+    "  border: none;"
+    "  outline: none;"
+    "}",
+    -1, NULL);
+  GtkStyleContext *TrackNameEntry_Style_Context = gtk_widget_get_style_context(TrackNameEntry);
+  gtk_style_context_add_provider(TrackNameEntry_Style_Context, GTK_STYLE_PROVIDER(TrackNameEntry_CSS_Provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+  gtk_box_pack_end(GTK_BOX(TrackNameBox), SoloButton, FALSE, FALSE, 0);
+  gtk_box_pack_end(GTK_BOX(TrackNameBox), MuteButton, FALSE, FALSE, 0);
+  
+
+  gtk_box_pack_start(GTK_BOX(TrackControlsBox), TrackNameBox, TRUE, FALSE, 6);
+
+  gtk_box_pack_start(GTK_BOX(TrackListBoxRef), TrackControlsBox, TRUE, FALSE, 0);
+
+  gtk_widget_show_all(TrackControlsBox);
 }
